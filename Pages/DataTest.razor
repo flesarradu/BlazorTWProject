@@ -1,0 +1,121 @@
+﻿@page "/datatest"
+@using BlazorTWProject.Services
+@inject DataService dataService
+
+<PageTitle>DataTest</PageTitle>
+
+<SurveyPrompt Title="Pe această pagină medicul efectuează evaluarea pacienților." />
+
+<select @onchange="OnChangeUserId">
+    <option value=""></option>
+    @foreach (var x in patients)
+    {
+        <option >@x</option>
+    }
+</select>
+
+@if (hasSelectedPatient)
+{
+    <p></p>
+    <InputFile multiple OnChange="@HandleFiles"/>
+    <p></p>
+    <button class="btn btn-primary" @onclick="RunPredictions">Run Predictions</button>
+    <p></p>
+    <p></p>
+    <div>
+        <h2>Predictii:</h2>
+        @if (predictions.Any())
+        {
+            <ul>
+                @foreach (var prediction in predictions)
+                {
+                    <li>@prediction</li>
+                }
+            </ul>
+        }
+        else
+        {
+            <p>Nu exsista predictii de afisat</p>
+        }
+    </div>
+    <div>
+        <h2>Rezultat:</h2>
+        @if (predictions.Any())
+        {
+            <p>Rezultatul testului: @((bolnav>sanatos)?"Bolnav":"Sanatos") </p>
+            <p>Bolnav: @bolnav </p>
+            <p>Sanatos: @sanatos </p>
+        }
+        else
+        {
+            <p>Nu exsista predictii de afisat</p>
+        }
+    </div>
+}
+else
+{
+    <div>
+        <p>Alegeti un pacient pentru a incepe evaluarea.</p>
+    </div>
+}
+@code {
+
+    private IList<IBrowserFile> filePaths;
+    private IList<String> predictions;
+    private IList<String> patients;
+    private Boolean hasSelectedPatient = false;
+    Int32 bolnav = 0, sanatos = 0, total = 0;
+    protected override async void OnInitialized()
+    {
+        patients = await dataService.GetPatients();
+        predictions = new List<String>();
+        filePaths = new List<IBrowserFile>();
+    }
+
+    private async void RunPredictions()
+    {
+        predictions.Clear();
+        bolnav = 0;
+        sanatos = 0;
+        total=0;
+        foreach (var file in filePaths)
+        {
+            await using var fileStream = file.OpenReadStream();
+            var memoryStream = new MemoryStream();
+            await fileStream.CopyToAsync(memoryStream);
+
+
+            var input = new ImageInput { Image = memoryStream.ToArray() };
+
+            var output = AIModel.Predict(input);
+
+            predictions.Add(file.Name +$" -  Predicted value: {output.PredictedLabel} - Prediction score: [{output.Score[0]} - {output.Score[1]}] ");
+            StateHasChanged();
+            total++;
+            _ = (output.PredictedLabel == AIModel.Label.Bolnav.ToString() ? bolnav++ : sanatos++);
+        }
+        
+    }
+    private async Task HandleFiles(InputFileChangeEventArgs e)
+    {
+        filePaths.Clear();
+        foreach (var f in e.GetMultipleFiles())
+        {
+            filePaths.Add(f);
+        }
+
+    }
+
+    private void OnChangeUserId(ChangeEventArgs obj)
+    {
+        if (!patients.Contains(obj.Value.ToString())) return;
+        hasSelectedPatient = true;
+        StateHasChanged();
+    }
+
+}
+
+
+
+
+

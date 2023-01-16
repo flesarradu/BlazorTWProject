@@ -1,0 +1,93 @@
+﻿@page "/patients"
+@using BlazorTWProject.Services
+@using BlazorTWProject.Data
+@inject DataService dataService
+<PageTitle>Date Pacienti</PageTitle>
+
+<SurveyPrompt Title="Aici puteti vedea datele pacientilor"/>
+
+
+<select @ref="valueSelect" value="@patients" @onchange="OnChangeUserId">
+    <option value=""></option>
+    @foreach (var x in patients)
+    {
+        <option >@x</option>
+    }
+</select>
+
+@if (patientData.Count == 0)
+{
+    <div>
+        <p>
+            Nu exista date colectate pentru acest pacient.
+        </p>
+    </div>
+}
+else
+{
+    <div>
+        <table class="table-responsive ">
+
+            <thead>
+            <tr>
+                <th>acc_x</th>
+                <th>acc_y</th>
+                <th>acc_z</th>
+                <th>acc_medie</th>
+                <th>stg_TA</th>
+                <th>stg_GM</th>
+                <th>stg_presiune_deget_mare</th>
+                <th>stg_presiune_metatarsiene</th>
+                <th>stg_presiune_calcai</th>
+                <th>dr_TA</th>
+                <th>dr_GM</th>
+                <th>dr_presiune_deget_mare</th>
+                <th>dr_presiune_metatarsiene</th>
+                <th>dr_presiune_calcai</th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach (var m in patientData)
+            {
+                <tr>
+                    @foreach (var x in m.Text.Split(" "))
+                    {
+                        <td>@x</td>
+                    }
+                </tr>
+            }
+            </tbody>
+        </table>
+
+    </div>
+}
+
+
+
+@code{
+    private EditContext EditContext;
+    private IList<String> patients;
+    private IList<Message> patientData;
+    private ElementReference valueSelect;
+
+    protected override async void OnInitialized()
+    {
+        patientData = new List<Message>();
+        patients = await dataService.GetPatients();
+        EditContext = new(patients);
+        EditContext.OnFieldChanged += EditContext_OnFieldChanged;
+    }
+
+    private async void EditContext_OnFieldChanged(Object? sender, FieldChangedEventArgs e)
+    {
+        patientData = await dataService.GetDataAsync(e.FieldIdentifier.FieldName);
+    }
+
+
+    private async void OnChangeUserId(ChangeEventArgs e)
+    {
+        patientData = await dataService.GetDataAsync(e.Value?.ToString());
+        StateHasChanged();
+    }
+
+}
